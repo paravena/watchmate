@@ -96,3 +96,26 @@ class WatchlistSerializer(serializers.ModelSerializer):
 class MovieDetailSerializer(MovieSerializer):
     genres = GenreSerializer(many=True, read_only=True)
     platforms = PlatformSerializer(many=True, read_only=True)
+
+
+class SignupSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8)
+    email = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "email", "password"]
+        read_only_fields = ["id"]
+
+    def validate_username(self, value: str) -> str:
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("A user with that username already exists.")
+        return value
+
+    def create(self, validated_data: dict[str, Any]) -> User:  # type: ignore[name-defined]
+        # Use Django's built-in user creation to ensure password hashing
+        username = validated_data.get("username")
+        email = validated_data.get("email")
+        password = validated_data.get("password")
+        user = User.objects.create_user(username=username, email=email, password=password)
+        return user

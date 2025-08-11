@@ -5,6 +5,7 @@ from typing import Any
 from django.db.models import QuerySet
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, permissions, status, viewsets
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -18,8 +19,10 @@ from watchlist_app.api.serializers import (
     ReviewSerializer,
     WatchlistItemSerializer,
     WatchlistSerializer,
+    SignupSerializer,
 )
 from watchlist_app.models import Genre, Movie, Rating, Review, StreamingPlatform, Watchlist, WatchlistItem
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 class ReadOnlyOrIsAuthenticated(permissions.BasePermission):
@@ -131,3 +134,24 @@ class WatchlistViewSet(viewsets.ModelViewSet):
             item, _ = WatchlistItem.objects.get_or_create(watchlist=watchlist, movie_id=mid)
             created.append(item)
         return Response(WatchlistItemSerializer(created, many=True).data, status=status.HTTP_201_CREATED)
+
+
+class SignupView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request: Request) -> Response:
+        serializer = SignupSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        # Generate JWT tokens using the same SimpleJWT mechanism
+        refresh = RefreshToken.for_user(user)
+        data = {
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+            },
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+        }
+        return Response(data, status=status.HTTP_201_CREATED)
